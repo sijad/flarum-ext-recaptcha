@@ -9,7 +9,8 @@ import SignUpModal from 'flarum/components/SignUpModal';
 const invisible = true;
 
 app.initializers.add('sijad-recaptcha', () => {
-  const isAvail = () => typeof grecaptcha !== 'undefined';
+  let isAvail = false;
+  let isLoading = false;
   let recaptchaID;
   let submitCallback;
 
@@ -44,31 +45,24 @@ app.initializers.add('sijad-recaptcha', () => {
           theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
           callback: submit,
           size: invisible && 'invisible',
-          badge: invisible && 'inline',
+          badge: 'inline',
         });
         $el.data('g-rendred', true);
       }
     }
 
-    if (isAvail()) {
+    if (isAvail) {
       render();
-    } else {
-      $.getScript(
-        `https://www.google.com/recaptcha/api.js?hl=${app.locale}&render=explicit`,
-        () => {
-          let attemps = 0;
-          const interval = setInterval(() => {
-            ++attemps;
-            if (isAvail()) {
-              clearInterval(interval);
-              render();
-            }
-            if (attemps > 100) {
-              clearInterval(interval);
-            }
-          }, 100);
-        }
-      );
+    } else if(!isLoading) {
+      isLoading = true;
+      window.grecaptchaOnLoad = () => {
+        isAvail = true;
+        render();
+      }
+      $.getScript(`https://www.google.com/recaptcha/api.js?hl=${app.data.locale}&render=explicit&onload=grecaptchaOnLoad`)
+        .fail(function(jqxhr, settings, exception) {
+          throw exception;
+        });
     }
   }
   extend(SignUpModal.prototype, 'config', load);
@@ -83,9 +77,7 @@ app.initializers.add('sijad-recaptcha', () => {
   });
 
   extend(SignUpModal.prototype, 'onerror', function () {
-    if (isAvail()) {
-      grecaptcha.reset(recaptchaID);
-    }
+    grecaptcha.reset(recaptchaID);
   });
 
   override(SignUpModal.prototype, 'onsubmit', function(original, e) {

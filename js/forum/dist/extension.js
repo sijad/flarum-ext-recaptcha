@@ -18,9 +18,8 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
 
 
       app.initializers.add('sijad-recaptcha', function () {
-        var isAvail = function isAvail() {
-          return typeof grecaptcha !== 'undefined';
-        };
+        var isAvail = false;
+        var isLoading = false;
         var recaptchaID = void 0;
         var submitCallback = void 0;
 
@@ -57,27 +56,22 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
                 theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
                 callback: submit,
                 size: invisible && 'invisible',
-                badge: invisible && 'inline'
+                badge: 'inline'
               });
               $el.data('g-rendred', true);
             }
           };
 
-          if (isAvail()) {
+          if (isAvail) {
             render();
-          } else {
-            $.getScript('https://www.google.com/recaptcha/api.js?hl=' + app.locale + '&render=explicit', function () {
-              var attemps = 0;
-              var interval = setInterval(function () {
-                ++attemps;
-                if (isAvail()) {
-                  clearInterval(interval);
-                  render();
-                }
-                if (attemps > 100) {
-                  clearInterval(interval);
-                }
-              }, 100);
+          } else if (!isLoading) {
+            isLoading = true;
+            window.grecaptchaOnLoad = function () {
+              isAvail = true;
+              render();
+            };
+            $.getScript('https://www.google.com/recaptcha/api.js?hl=' + app.data.locale + '&render=explicit&onload=grecaptchaOnLoad').fail(function (jqxhr, settings, exception) {
+              throw exception;
             });
           }
         }
@@ -93,9 +87,7 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
         });
 
         extend(SignUpModal.prototype, 'onerror', function () {
-          if (isAvail()) {
-            grecaptcha.reset(recaptchaID);
-          }
+          grecaptcha.reset(recaptchaID);
         });
 
         override(SignUpModal.prototype, 'onsubmit', function (original, e) {

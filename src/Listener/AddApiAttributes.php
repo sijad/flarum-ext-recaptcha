@@ -28,8 +28,11 @@ class AddApiAttributes {
 
     public function prepareApiAttributes(PrepareApiAttributes $event) {
         if ($event->isSerializer(ForumSerializer::class)) {
-            $event->attributes['darkMode'] = (bool) $this->settings->get('theme_dark_mode');
-            $event->attributes['recaptchaPublic'] = $this->settings->get('sijad-recaptcha.sitekey');
+            $event->attributes['recaptcha'] = [
+                'sitekey' => $this->settings->get('sijad-recaptcha.sitekey'),
+                'darkTheme' => !! $this->settings->get('theme_dark_mode'),
+                'invisible' => !! $this->settings->get('sijad-recaptcha.invisible'),
+            ];
         }
     }
 }

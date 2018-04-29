@@ -6,14 +6,14 @@ import { extend, override } from 'flarum/extend';
 import SignUpModal from 'flarum/components/SignUpModal';
 // import LogInModal from 'flarum/components/LogInModal';
 
+const invisible = true;
+
 app.initializers.add('sijad-recaptcha', () => {
   const isAvail = () => typeof grecaptcha !== 'undefined';
-  let recaptchaValue;
   let recaptchaID;
   let submitCallback;
 
   function submit(token) {
-    recaptchaValue = token;
     submitCallback && submitCallback();
   }
 
@@ -29,17 +29,24 @@ app.initializers.add('sijad-recaptcha', () => {
     const render = () => {
       if (this.$('.g-recaptcha').length) return;
 
-      const el = $('<div class="Form-group g-recaptcha">')
-        .insertBefore(this.$('[type="submit"]').parent())[0];
+      const version = invisible ? 'invisible' : 'v2';
+      const $el = $(`<div class="Form-group g-recaptcha g-recaptcha-${version}">`);
+      const $parent = this.$('[type="submit"]').parent();
+      if (invisible) {
+        $parent.after($el);
+      } else {
+        $parent.before($el);
+      }
 
-      if (el && !$(el).data('g-rendred')) {
-        recaptchaID = grecaptcha.render(el, {
+      if (!$el.data('g-rendred')) {
+        recaptchaID = grecaptcha.render($el.get(0), {
           sitekey: key,
           theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
           callback: submit,
-          size: 'invisible',
+          size: invisible && 'invisible',
+          badge: invisible && 'inline',
         });
-        $(el).data('g-rendred', true);
+        $el.data('g-rendred', true);
       }
     }
 
@@ -71,7 +78,7 @@ app.initializers.add('sijad-recaptcha', () => {
   // extend(LogInModal.prototype, 'signUp', clean);
 
   extend(SignUpModal.prototype, 'submitData', function (data) {
-    data['g-recaptcha-response'] = recaptchaValue;
+    data['g-recaptcha-response'] = grecaptcha.getResponse(recaptchaID);
     return data;
   });
 
@@ -82,8 +89,12 @@ app.initializers.add('sijad-recaptcha', () => {
   });
 
   override(SignUpModal.prototype, 'onsubmit', function(original, e) {
-    e.preventDefault();
-    submitCallback = () => original(e);
-    grecaptcha.execute(recaptchaID);
+    if (invisible) {
+      e.preventDefault();
+      submitCallback = () => original(e);
+      grecaptcha.execute(recaptchaID);
+    } else {
+      original(e);
+    }
   });
 });

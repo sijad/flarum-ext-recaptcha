@@ -3,7 +3,7 @@
 System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/components/SignUpModal'], function (_export, _context) {
   "use strict";
 
-  var app, extend, override, SignUpModal;
+  var app, extend, override, SignUpModal, invisible;
   return {
     setters: [function (_flarumApp) {
       app = _flarumApp.default;
@@ -14,18 +14,17 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
       SignUpModal = _flarumComponentsSignUpModal.default;
     }],
     execute: function () {
-      // import LogInModal from 'flarum/components/LogInModal';
+      invisible = true;
+
 
       app.initializers.add('sijad-recaptcha', function () {
         var isAvail = function isAvail() {
           return typeof grecaptcha !== 'undefined';
         };
-        var recaptchaValue = void 0;
         var recaptchaID = void 0;
         var submitCallback = void 0;
 
         function submit(token) {
-          recaptchaValue = token;
           submitCallback && submitCallback();
         }
 
@@ -43,16 +42,24 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
           var render = function render() {
             if (_this.$('.g-recaptcha').length) return;
 
-            var el = $('<div class="Form-group g-recaptcha">').insertBefore(_this.$('[type="submit"]').parent())[0];
+            var version = invisible ? 'invisible' : 'v2';
+            var $el = $('<div class="Form-group g-recaptcha g-recaptcha-' + version + '">');
+            var $parent = _this.$('[type="submit"]').parent();
+            if (invisible) {
+              $parent.after($el);
+            } else {
+              $parent.before($el);
+            }
 
-            if (el && !$(el).data('g-rendred')) {
-              recaptchaID = grecaptcha.render(el, {
+            if (!$el.data('g-rendred')) {
+              recaptchaID = grecaptcha.render($el.get(0), {
                 sitekey: key,
                 theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
                 callback: submit,
-                size: 'invisible'
+                size: invisible && 'invisible',
+                badge: invisible && 'inline'
               });
-              $(el).data('g-rendred', true);
+              $el.data('g-rendred', true);
             }
           };
 
@@ -81,7 +88,7 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
         // extend(LogInModal.prototype, 'signUp', clean);
 
         extend(SignUpModal.prototype, 'submitData', function (data) {
-          data['g-recaptcha-response'] = recaptchaValue;
+          data['g-recaptcha-response'] = grecaptcha.getResponse(recaptchaID);
           return data;
         });
 
@@ -92,15 +99,17 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
         });
 
         override(SignUpModal.prototype, 'onsubmit', function (original, e) {
-          e.preventDefault();
-          submitCallback = function submitCallback() {
-            return original(e);
-          };
-          grecaptcha.execute(recaptchaID);
+          if (invisible) {
+            e.preventDefault();
+            submitCallback = function submitCallback() {
+              return original(e);
+            };
+            grecaptcha.execute(recaptchaID);
+          } else {
+            original(e);
+          }
         });
-      }); /* global $ */
-      /* global m */
-      /* global grecaptcha */
+      });
     }
   };
 });

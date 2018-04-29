@@ -1,14 +1,16 @@
 'use strict';
 
-System.register('sijad/recaptcha/components/ReCaptchaSettingsModal', ['flarum/app', 'flarum/components/SettingsModal'], function (_export, _context) {
+System.register('sijad/recaptcha/components/ReCaptchaSettingsModal', ['flarum/app', 'flarum/components/SettingsModal', 'flarum/components/Switch'], function (_export, _context) {
   "use strict";
 
-  var app, SettingsModal, ReCaptchaSettingsModal;
+  var app, SettingsModal, Switch, ReCaptchaSettingsModal;
   return {
     setters: [function (_flarumApp) {
       app = _flarumApp.default;
     }, function (_flarumComponentsSettingsModal) {
       SettingsModal = _flarumComponentsSettingsModal.default;
+    }, function (_flarumComponentsSwitch) {
+      Switch = _flarumComponentsSwitch.default;
     }],
     execute: function () {
       ReCaptchaSettingsModal = function (_SettingsModal) {
@@ -50,6 +52,16 @@ System.register('sijad/recaptcha/components/ReCaptchaSettingsModal', ['flarum/ap
                 app.translator.trans('sijad-recaptcha.admin.recaptcha_settings.secret_label')
               ),
               m('input', { className: 'FormControl', bidi: this.setting('sijad-recaptcha.secret') })
+            ), m(
+              'div',
+              { className: 'Form-group' },
+              m(
+                'label',
+                null,
+                m('input', { type: 'checkbox', bidi: this.setting('sijad-recaptcha.invisible') }),
+                ' ',
+                app.translator.trans('sijad-recaptcha.admin.recaptcha_settings.invisible_label')
+              )
             )];
           }
         }]);

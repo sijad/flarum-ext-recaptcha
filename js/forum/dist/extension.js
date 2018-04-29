@@ -3,12 +3,13 @@
 System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/components/SignUpModal'], function (_export, _context) {
   "use strict";
 
-  var app, extend, SignUpModal;
+  var app, extend, override, SignUpModal;
   return {
     setters: [function (_flarumApp) {
       app = _flarumApp.default;
     }, function (_flarumExtend) {
       extend = _flarumExtend.extend;
+      override = _flarumExtend.override;
     }, function (_flarumComponentsSignUpModal) {
       SignUpModal = _flarumComponentsSignUpModal.default;
     }],
@@ -19,8 +20,18 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
         var isAvail = function isAvail() {
           return typeof grecaptcha !== 'undefined';
         };
-        var recaptchaValue = m.prop();
-        var recaptchaID = m.prop();
+        var recaptchaValue = void 0;
+        var recaptchaID = void 0;
+        var submitCallback = void 0;
+
+        function submit(token) {
+          recaptchaValue = token;
+          submitCallback && submitCallback();
+        }
+
+        function clean() {
+          this.$('.g-recaptcha').remove();
+        }
 
         function load() {
           var _this = this;
@@ -35,15 +46,13 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
             var el = $('<div class="Form-group g-recaptcha">').insertBefore(_this.$('[type="submit"]').parent())[0];
 
             if (el && !$(el).data('g-rendred')) {
-              recaptchaID(grecaptcha.render(el, {
+              recaptchaID = grecaptcha.render(el, {
                 sitekey: key,
                 theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
-                callback: function callback(val) {
-                  recaptchaValue(val);
-                }
-              }));
+                callback: submit,
+                size: 'invisible'
+              });
               $(el).data('g-rendred', true);
-              m.redraw();
             }
           };
 
@@ -68,22 +77,26 @@ System.register('sijad/recaptcha/main', ['flarum/app', 'flarum/extend', 'flarum/
         extend(SignUpModal.prototype, 'config', load);
         // extend(LogInModal.prototype, 'config', load);
 
-        function clean() {
-          this.$('.g-recaptcha').remove();
-        }
         extend(SignUpModal.prototype, 'logIn', clean);
         // extend(LogInModal.prototype, 'signUp', clean);
 
         extend(SignUpModal.prototype, 'submitData', function (data) {
-          var newData = data;
-          newData['g-recaptcha-response'] = recaptchaValue();
-          return newData;
+          data['g-recaptcha-response'] = recaptchaValue;
+          return data;
         });
 
         extend(SignUpModal.prototype, 'onerror', function () {
           if (isAvail()) {
-            grecaptcha.reset(recaptchaID());
+            grecaptcha.reset(recaptchaID);
           }
+        });
+
+        override(SignUpModal.prototype, 'onsubmit', function (original, e) {
+          e.preventDefault();
+          submitCallback = function submitCallback() {
+            return original(e);
+          };
+          grecaptcha.execute(recaptchaID);
         });
       }); /* global $ */
       /* global m */

@@ -2,14 +2,24 @@
 /* global m */
 /* global grecaptcha */
 import app from 'flarum/app';
-import { extend } from 'flarum/extend';
+import { extend, override } from 'flarum/extend';
 import SignUpModal from 'flarum/components/SignUpModal';
 // import LogInModal from 'flarum/components/LogInModal';
 
 app.initializers.add('sijad-recaptcha', () => {
   const isAvail = () => typeof grecaptcha !== 'undefined';
-  const recaptchaValue = m.prop();
-  const recaptchaID = m.prop();
+  let recaptchaValue;
+  let recaptchaID;
+  let submitCallback;
+
+  function submit(token) {
+    recaptchaValue = token;
+    submitCallback && submitCallback();
+  }
+
+  function clean() {
+    this.$('.g-recaptcha').remove();
+  }
 
   function load() {
     const key = app.forum.attribute('recaptchaPublic');
@@ -23,17 +33,15 @@ app.initializers.add('sijad-recaptcha', () => {
         .insertBefore(this.$('[type="submit"]').parent())[0];
 
       if (el && !$(el).data('g-rendred')) {
-        recaptchaID(grecaptcha.render(el, {
+        recaptchaID = grecaptcha.render(el, {
           sitekey: key,
           theme: app.forum.attribute('darkMode') ? 'dark' : 'light',
-          callback: val => {
-            recaptchaValue(val);
-          },
-        }));
+          callback: submit,
+          size: 'invisible',
+        });
         $(el).data('g-rendred', true);
-        m.redraw();
       }
-    };
+    }
 
     if (isAvail()) {
       render();
@@ -59,21 +67,23 @@ app.initializers.add('sijad-recaptcha', () => {
   extend(SignUpModal.prototype, 'config', load);
   // extend(LogInModal.prototype, 'config', load);
 
-  function clean() {
-    this.$('.g-recaptcha').remove();
-  }
   extend(SignUpModal.prototype, 'logIn', clean);
   // extend(LogInModal.prototype, 'signUp', clean);
 
   extend(SignUpModal.prototype, 'submitData', function (data) {
-    const newData = data;
-    newData['g-recaptcha-response'] = recaptchaValue();
-    return newData;
+    data['g-recaptcha-response'] = recaptchaValue;
+    return data;
   });
 
   extend(SignUpModal.prototype, 'onerror', function () {
     if (isAvail()) {
-      grecaptcha.reset(recaptchaID());
+      grecaptcha.reset(recaptchaID);
     }
+  });
+
+  override(SignUpModal.prototype, 'onsubmit', function(original, e) {
+    e.preventDefault();
+    submitCallback = () => original(e);
+    grecaptcha.execute(recaptchaID);
   });
 });
